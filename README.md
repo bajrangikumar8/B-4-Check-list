@@ -1,11 +1,22 @@
-# 104 Room Checklist — Simple Status Version
+# 104 Room Checklist – Multi Mobile Live Version
 
-104 rooms, 9 works per room.
+This version keeps a local copy on each phone and synchronizes all phones through Firebase Realtime Database. It supports 5+ phones.
 
-For each work the user sees only **Status**: Pending / In Progress / Done.
-- If Pending: **Pending Reason** appears and is mandatory.
-- Pending reasons: Tile Work Pending, Material Not Available, Labour Not Available, False Ceiling Pending, Site Access Issue, Other.
-- If Other is selected: **Remarks** appears and is mandatory.
-- If status is In Progress or Done, Pending Reason and Remarks are hidden.
+## One-time setup
+1. Create a Firebase project: https://console.firebase.google.com/
+2. Add a Web app.
+3. Enable Authentication > Sign-in method > Anonymous.
+4. Create Realtime Database.
+5. For initial setup, use these Realtime Database Rules (authenticated users only):
 
-Reports contain only Room, Floor, Work, Status, Pending Reason and Remarks.
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}
+
+6. Copy the Web app `firebaseConfig` into `firebase-config.js`.
+7. Upload/replace all files in GitHub Pages.
+
+The cloud database is the shared source for live sync; each phone also keeps a local offline copy.
