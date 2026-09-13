@@ -27,3 +27,7 @@ The cloud database is the shared source for live sync; each phone also keeps a l
 - Building 3: Part A 52 rooms (13 per floor), Part B 64 rooms (16 per floor), Part C 52 rooms (13 per floor)
 - Building 4: 104 rooms (26 per floor)
 Total: 360 rooms. Building 3 contains Parts A/B/C.
+
+
+## Building structure
+Building 2: 88 rooms. Building 3 contains Part A (52), Part B (64), Part C (52). Building 4: 104 rooms. Total 360 rooms.
