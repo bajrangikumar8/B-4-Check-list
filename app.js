@@ -3,8 +3,8 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
 const $=id=>document.getElementById(id), esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-const WORKS=["Conducting","DB Dressing","Room Wiring","18W Light Installation","Kitchen Switch Socket Installation","Fan Installation","Toilet Wiring","12W Light Installation","Toilet Switch Socket Installation"];
-const REASONS=["Tile Work Pending","Material Not Available","Labour Not Available","False Ceiling Pending","Site Access Issue","Conducting not done","Other"];
+const WORKS=["Conducting","DB Dressing","Room Wiring","18W Light Installation","Kitchen Switch Socket Installation","Fan Installation","Toilet Wiring","12W Light Installation","Toilet Switch Socket Installation","Hand Over"];
+const REASONS=["Tile Work Pending","Material Not Available","Labour Not Available","False Ceiling Pending","Site Access Issue","Conducting not done","wiring not done","Other"];
 const FLOORS=["Ground","First","Second","Third"], PFX={Ground:"G",First:"1F",Second:"2F",Third:"3F"};
 const BUILDINGS=[{id:"B2",name:"Building 2",parts:[{id:"MAIN",name:"Building 2",rooms:88}]},{id:"B3",name:"Building 3",parts:[{id:"A",name:"Part A",rooms:52},{id:"B",name:"Part B",rooms:64},{id:"C",name:"Part C",rooms:52}]},{id:"B4",name:"Building 4",parts:[{id:"MAIN",name:"Building 4",rooms:104}]}];
 function makeRooms(){const a=[];for(const b of BUILDINGS)for(const part of b.parts){const perFloor=part.rooms/4;for(const f of FLOORS)for(let n=1;n<=perFloor;n++)a.push({id:`${b.id}-${part.id}-${PFX[f]}-${String(n).padStart(2,"0")}`,building:b.id,buildingName:b.name,part:part.id,partName:part.name,floor:f,tasks:WORKS.map(work=>({work,status:"",reason:"",otherReason:"",remarks:""}))});}return a}
@@ -12,8 +12,8 @@ const fresh=makeRooms();
 let rawLocal=JSON.parse(localStorage.getItem("roomsBuildingsV1")||"null");
 let data=rawLocal ? null : fresh, current, db, saveTimer;
 function setSync(text,cls=""){const e=$("syncStatus");e.textContent=text;e.className="syncstatus "+cls}
-function pct(r){return Math.round(r.tasks.filter(t=>t.status==="Done"||t.status==="N/A").length/9*100)}
-function roomStatus(r){const a=r.tasks.map(t=>t.status);if(a.every(x=>x==="Done"||x==="N/A"))return "Done";if(a.includes("In Progress"))return "In Progress";if(a.includes("Pending"))return "Pending";return "Not Started"}
+function pct(r){return Math.round(r.tasks.filter(t=>t.status==="Done"||t.status==="N/A").length/10*100)}
+function roomStatus(r){const a=r.tasks.map(t=>t.status);if(a.every(x=>x==="Done"||x==="N/A"))return "Done";if(a.includes("In Progress"))return "In Progress";if(a.includes("Pending"))return "Pending";if(a.slice(1).includes("Done"))return "In Progress";return "Not Started"}
 function normalizeIncoming(x){
   const incoming=Array.isArray(x)?x:Object.values(x||{});
   const byId=new Map(incoming.filter(r=>r&&r.id).map(r=>[r.id,r]));
@@ -39,13 +39,57 @@ $("buildingFilter").addEventListener("change",()=>{refreshPartOptions();render()
 $("partFilter").addEventListener("change",render);
 refreshPartOptions();
 window.openRoom=id=>{current=data.find(r=>r.id===id);$("modalTitle").textContent="Room "+id;$("modalPct").textContent=pct(current)+"% complete";$("tasks").innerHTML=current.tasks.map((t,i)=>taskHTML(t,i)).join("");$("modal").classList.remove("hidden");bindTasks()};
-function taskHTML(t,i){const pending=t.status==="Pending",other=pending&&t.reason==="Other",auto=i>0&&t.reason==="Conducting not done";return `<div class="task" data-i="${i}"><div class="tasktitle">${i+1}. ${t.work}</div><div class="grid"><label>Status<select class="ts" ${auto?"disabled":""}><option value="">Select Status</option><option ${t.status==="Pending"?"selected":""}>Pending</option><option ${t.status==="In Progress"?"selected":""}>In Progress</option><option ${t.status==="Done"?"selected":""}>Done</option></select></label><label class="reasonWrap" style="display:${pending?"block":"none"}">Pending Reason<select class="reasonSel" ${auto?"disabled":""}><option value="">Select Reason</option>${REASONS.map(x=>`<option ${x===t.reason?"selected":""}>${x}</option>`).join("")}</select></label><label class="remarkWrap" style="display:${other?"block":"none"}">Remarks<textarea class="remarks" placeholder="Pending reason details...">${esc(t.remarks)}</textarea></label><div class="warn"></div></div></div>`}
-function bindTasks(){document.querySelectorAll(".task").forEach(el=>{const s=el.querySelector(".ts"),rr=el.querySelector(".reasonWrap"),rs=el.querySelector(".reasonSel"),rw=el.querySelector(".remarkWrap");function update(){const pending=s.value==="Pending",other=pending&&rs.value==="Other";rr.style.display=pending?"block":"none";rw.style.display=other?"block":"none";if(!pending){rs.value="";rw.querySelector(".remarks").value=""}else if(rs.value!=="Other")rw.querySelector(".remarks").value=""}s.onchange=()=>{update();if(+el.dataset.i===0&&s.value==="Pending"){document.querySelectorAll(".task").forEach((x,j)=>{if(j>0){const ts=x.querySelector(".ts"),rs2=x.querySelector(".reasonSel"),rw2=x.querySelector(".remarks");ts.value="Pending";ts.disabled=true;rs2.value="Conducting not done";rs2.disabled=true;rw2.value="";x.querySelector(".reasonWrap").style.display="block";x.querySelector(".remarkWrap").style.display="none"}})}else if(+el.dataset.i===0){document.querySelectorAll(".task").forEach((x,j)=>{if(j>0){x.querySelector(".ts").disabled=false;x.querySelector(".reasonSel").disabled=false}})}};rs.onchange=update;update()})}
+function autoReasonFor(i){if(i>=3&&i<=5)return "wiring not done";return ""}
+function taskHTML(t,i){const pending=t.status==="Pending",other=pending&&t.reason==="Other",auto=(i>0&&i<9&&t.reason==="Conducting not done")||(i>=3&&i<=5&&t.reason==="wiring not done")||(i>=7&&i<=8&&t.reason==="wiring not done")||(i<9&&t.status==="Done"&&current?.tasks?.[9]?.status==="Done");return `<div class="task" data-i="${i}"><div class="tasktitle">${i+1}. ${t.work}</div><div class="grid"><label>Status<select class="ts" ${auto?"disabled":""}><option value="">Select Status</option><option ${t.status==="Pending"?"selected":""}>Pending</option><option ${t.status==="In Progress"?"selected":""}>In Progress</option><option ${t.status==="Done"?"selected":""}>Done</option></select></label><label class="reasonWrap" style="display:${pending?"block":"none"}">Pending Reason<select class="reasonSel" ${auto?"disabled":""}><option value="">Select Reason</option>${REASONS.map(x=>`<option ${x===t.reason?"selected":""}>${x}</option>`).join("")}</select></label><label class="remarkWrap" style="display:${other?"block":"none"}">Remarks<textarea class="remarks" placeholder="Pending reason details...">${esc(t.remarks)}</textarea></label><div class="warn"></div></div></div>`}
+function bindTasks(){
+ document.querySelectorAll(".task").forEach(el=>{
+  const s=el.querySelector(".ts"),rr=el.querySelector(".reasonWrap"),rs=el.querySelector(".reasonSel"),rw=el.querySelector(".remarkWrap");
+  function update(){const pending=s.value==="Pending",other=pending&&rs.value==="Other";rr.style.display=pending?"block":"none";rw.style.display=other?"block":"none";if(!pending){rs.value="";rw.querySelector(".remarks").value=""}else if(rs.value!=="Other")rw.querySelector(".remarks").value=""}
+  s.onchange=()=>{
+   const i=+el.dataset.i; update();
+   if(i===0&&s.value==="Pending"){applyAutoPending(1,9,"Conducting not done");}
+   else if(i===0){enableTasks(1,9);}
+   if(i===2&&s.value==="Pending"){applyAutoPending(3,8,"wiring not done");}
+   else if(i===2){clearAutoPending(3,8,"wiring not done");}
+   if(i===6&&s.value==="Pending"){applyAutoPending(7,8,"wiring not done");}
+   else if(i===6){clearAutoPending(7,8,"wiring not done");}
+   if(i===9&&s.value==="Done"){applyAutoDone(0,8);}
+   else if(i===9){enableTasks(0,8);}
+  };
+  rs.onchange=update; update();
+ });
+}
+function enableTasks(from,to){document.querySelectorAll(".task").forEach((x,j)=>{if(j>=from&&j<=to){x.querySelector(".ts").disabled=false;x.querySelector(".reasonSel").disabled=false;}})}
+function applyAutoPending(from,to,reason){document.querySelectorAll(".task").forEach((x,j)=>{if(j>=from&&j<=to){const ts=x.querySelector(".ts"),rs=x.querySelector(".reasonSel"),rw=x.querySelector(".remarks");ts.value="Pending";ts.disabled=true;rs.value=reason;rs.disabled=true;rw.value="";x.querySelector(".reasonWrap").style.display="block";x.querySelector(".remarkWrap").style.display="none";}})}
+function applyAutoDone(from,to){document.querySelectorAll(".task").forEach((x,j)=>{if(j>=from&&j<=to){const ts=x.querySelector(".ts"),rs=x.querySelector(".reasonSel"),rw=x.querySelector(".remarks");ts.value="Done";ts.disabled=true;rs.value="";rs.disabled=true;rw.value="";x.querySelector(".reasonWrap").style.display="none";x.querySelector(".remarkWrap").style.display="none";}})}
+function clearAutoPending(from,to,reason){document.querySelectorAll(".task").forEach((x,j)=>{if(j>=from&&j<=to&&x.querySelector(".reasonSel").value===reason){x.querySelector(".ts").disabled=false;x.querySelector(".reasonSel").disabled=false;x.querySelector(".ts").value="";x.querySelector(".reasonSel").value="";x.querySelector(".reasonWrap").style.display="none";}})}
+
 $("closeModal").onclick=()=>$("modal").classList.add("hidden");
-$("saveRoom").onclick=()=>{if(document.querySelector('.task[data-i="0"] .ts').value==="Pending"){document.querySelectorAll(".task").forEach((el,j)=>{if(j>0){el.querySelector(".ts").value="Pending";el.querySelector(".reasonSel").value="Conducting not done"}})}let ok=true;document.querySelectorAll(".task").forEach(el=>{const i=+el.dataset.i,t=current.tasks[i],st=el.querySelector(".ts").value,r=el.querySelector(".reasonSel").value,rem=el.querySelector(".remarks").value.trim(),w=el.querySelector(".warn");w.textContent="";if(i>0&&current.tasks[0].status==="Pending"){Object.assign(t,{status:"Pending",reason:"Conducting not done",otherReason:"",remarks:""});return}if(st==="Pending"&&(!r||(r==="Other"&&!rem))){ok=false;w.textContent=r==="Other"?"Other reason details are required.":"Pending Reason is required.";return}Object.assign(t,{status:st,reason:st==="Pending"?r:"",otherReason:"",remarks:st==="Pending"&&r==="Other"?rem:""})});if(!ok){alert("Pending work ke liye Reason bharna zaroori hai. Other select karne par Remarks bhi zaroori hai.");return}saveLocal();render();$("modal").classList.add("hidden");pushCloud()};
+$("saveRoom").onclick=()=>{
+ const conductingPending=document.querySelector('.task[data-i="0"] .ts').value==="Pending";
+ const roomWiringPending=document.querySelector('.task[data-i="2"] .ts').value==="Pending";
+ const toiletWiringPending=document.querySelector('.task[data-i="6"] .ts').value==="Pending";
+ const handOverDone=document.querySelector('.task[data-i="9"] .ts').value==="Done";
+ if(handOverDone) applyAutoDone(0,8);
+ if(conductingPending) applyAutoPending(1,9,"Conducting not done");
+ if(roomWiringPending) applyAutoPending(3,8,"wiring not done");
+ if(toiletWiringPending) applyAutoPending(7,8,"wiring not done");
+ let ok=true;
+ document.querySelectorAll(".task").forEach(el=>{const i=+el.dataset.i,t=current.tasks[i],st=el.querySelector(".ts").value,r=el.querySelector(".reasonSel").value,rem=el.querySelector(".remarks").value.trim(),w=el.querySelector(".warn");w.textContent="";
+  if(handOverDone&&i<9){Object.assign(t,{status:"Done",reason:"",otherReason:"",remarks:""});return;}
+  if(conductingPending&&i>0){Object.assign(t,{status:"Pending",reason:"Conducting not done",otherReason:"",remarks:""});return;}
+  if(roomWiringPending&&i>=3){Object.assign(t,{status:"Pending",reason:"wiring not done",otherReason:"",remarks:""});return;}
+  if(toiletWiringPending&&i>=7){Object.assign(t,{status:"Pending",reason:"wiring not done",otherReason:"",remarks:""});return;}
+  if(st==="Pending"&&(!r||(r==="Other"&&!rem))){ok=false;w.textContent=r==="Other"?"Other reason details are required.":"Pending Reason is required.";return;}
+  Object.assign(t,{status:st,reason:st==="Pending"?r:"",otherReason:"",remarks:st==="Pending"&&r==="Other"?rem:""});
+ });
+ if(!ok){alert("Pending work ke liye Reason bharna zaroori hai. Other select karne par Remarks bhi zaroori hai.");return;}
+ saveLocal();render();$("modal").classList.add("hidden");pushCloud();
+};
+
 function rows(){return data.flatMap(r=>r.tasks.map(t=>({Room:r.id,Floor:r.floor,Work:t.work,Status:t.status||"Not Started",PendingReason:t.status==="Pending"?(t.reason==="Other"?"Other":t.reason):"",Remarks:t.status==="Pending"&&t.reason==="Other"?t.remarks:""})))}
 function csv(a){const k=Object.keys(a[0]||{}),q=x=>`"${String(x??"").replace(/"/g,'""')}"`;return "\uFEFF"+[k.map(q).join(","),...a.map(o=>k.map(x=>q(o[x])).join(","))].join("\r\n")}
 function download(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-$("excelBtn").onclick=()=>download("104_Room_Checklist_Excel.csv",csv(rows()),"text/csv;charset=utf-8");$("pendingBtn").onclick=()=>download("104_Room_Pending_Report.csv",csv(rows().filter(x=>x.Status==="Pending")),"text/csv;charset=utf-8");$("summaryBtn").onclick=()=>download("104_Room_Summary.csv",csv(rows()),"text/csv;charset=utf-8");$("workerBtn").style.display="none";$("backupBtn").onclick=()=>download("104_Room_Checklist_Backup.json",JSON.stringify(data,null,2),"application/json");$("restoreInput").onchange=e=>{const rd=new FileReader();rd.onload=()=>{try{const x=JSON.parse(rd.result);if(!Array.isArray(x)||x.length!==data.length)throw 0;data=normalizeIncoming(x);saveLocal();render();pushCloud();alert("Backup restored successfully.")}catch{alert("Invalid backup file.")}};rd.readAsText(e.target.files[0])};$("clearBtn").onclick=()=>{if(confirm("All saved data will be deleted. Continue?")){data=fresh;saveLocal();render();pushCloud()}};
+$("excelBtn").onclick=()=>download("Renew_Building_Check_list_Excel.csv",csv(rows()),"text/csv;charset=utf-8");$("pendingBtn").onclick=()=>download("Renew_Building_Check_list_Pending_Report.csv",csv(rows().filter(x=>x.Status==="Pending")),"text/csv;charset=utf-8");$("summaryBtn").onclick=()=>download("Renew_Building_Check_list_Summary.csv",csv(rows()),"text/csv;charset=utf-8");$("workerBtn").style.display="none";$("backupBtn").onclick=()=>download("Renew_Building_Check_list_Backup.json",JSON.stringify(data,null,2),"application/json");$("restoreInput").onchange=e=>{const rd=new FileReader();rd.onload=()=>{try{const x=JSON.parse(rd.result);if(!Array.isArray(x)||x.length!==data.length)throw 0;data=normalizeIncoming(x);saveLocal();render();pushCloud();alert("Backup restored successfully.")}catch{alert("Invalid backup file.")}};rd.readAsText(e.target.files[0])};$("clearBtn").onclick=()=>{if(confirm("All saved data will be deleted. Continue?")){data=fresh;saveLocal();render();pushCloud()}};
 async function start(){const cfg=window.FIREBASE_CONFIG;if(!cfg||cfg.apiKey.startsWith("PASTE_")){setSync("Firebase setup required","offline");return}try{const app=initializeApp(cfg);const auth=getAuth(app);db=getDatabase(app);await signInAnonymously(auth);onAuthStateChanged(auth,user=>{if(!user)return;onValue(ref(db,"rooms"),snap=>{const v=snap.val();if(v){data=normalizeIncoming(v);saveLocal();render();setSync("Live • Synced","ok")}else{pushCloud();setSync("Live • Saved","ok")}},e=>{console.error(e);setSync("Offline • Local saved","offline")})})}catch(e){console.error(e);setSync("Setup error • Local only","offline")}}
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");render();start();

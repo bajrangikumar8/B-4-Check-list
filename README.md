@@ -1,4 +1,4 @@
-# Renew Building Check list – Multi Mobile Live Version
+# Renew Building Check list by Bajrangi – Multi Mobile Live Version
 
 This version keeps a local copy on each phone and synchronizes all phones through Firebase Realtime Database. It supports 5+ phones.
 
@@ -26,7 +26,7 @@ The cloud database is the shared source for live sync; each phone also keeps a l
 - Building 2: 88 rooms (22 per floor)
 - Building 3: Part A 52 rooms (13 per floor), Part B 64 rooms (16 per floor), Part C 52 rooms (13 per floor)
 - Building 4: 104 rooms (26 per floor)
-Total: 360 rooms. Building 3 contains Parts A/B/C.
+Total: 360 rooms. Building 3 contains Parts A/B/C. Point 10: Hand Over. Point 10 is Hand Over; when Hand Over is Done, points 1–9 are automatically marked Done.
 
 
 ## Building structure
